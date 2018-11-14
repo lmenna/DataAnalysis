@@ -68,31 +68,24 @@ async function getBigQueryData(query)
 
 function OutputResults(results) {
 
+  // Remove the one partial day from the resultSet
+  results.splice(-1,1);
   var avgTrans = 0;
   results.map(item => {
     avgTrans += item.Transactions;
   });
   avgTrans = avgTrans / results.length;
   var Message = "<HTML><BODY>";
-  var Line = "Date       \tDay # \tTransactions \tDelta from Avg";
   Message = "<table cellspacing=\"8\" callpadding=\"4\"><tbody>";
   Message += "<tr align=\"center\"><th>Date</th><th>Day #</th><th>Transactions</th><th>Delta from Avg</th></tr>";
-  console.log( Line );
-  const rLen = results.length;
-  // Leave off the last daily data point.
-  for (i=0; i<(rLen-1); i++) {
-    Message += ("<tr align=\"right\"><td align=\"right\">" + results[i].MaxTimestamp.value.substring(0,10) + "</td>"
-      + "<td align=\"right\">" + results[i].IntDaysFrom19700101 + "</td>"
-      + "<td align=\"right\">" + results[i].Transactions.toLocaleString('en') + "</td>"
-      + "<td align=\"right\">" + Math.trunc(results[i].Transactions - avgTrans).toLocaleString('en') + "</td></tr>");
-  }
-  Line = "</tbody></table><br/>";
-  console.log(Line);
-  Message += Line;
-  Line = "Avg Num Transactions: " + Math.trunc(avgTrans).toLocaleString('en');
-  console.log(Line);
-  Message += (Line + "</BODY></HTML>");
-  console.log(Message);
+  results.map(item => {
+    Message += ("<tr align=\"right\"><td align=\"right\">" + item.MaxTimestamp.value.substring(0,10) + "</td>"
+      + "<td align=\"right\">" + item.IntDaysFrom19700101 + "</td>"
+      + "<td align=\"right\">" + item.Transactions.toLocaleString('en') + "</td>"
+      + "<td align=\"right\">" + Math.trunc(item.Transactions - avgTrans).toLocaleString('en') + "</td></tr>");
+  });
+  Message += "</tbody></table><br/>";
+  Message += ("Avg Num Transactions: " + Math.trunc(avgTrans).toLocaleString('en') + "</BODY></HTML>");
   return(Message);
 }
 

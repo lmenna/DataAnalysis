@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <title>D3 ETH Analysis</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="javascripts/charts.js"></script>
+    <script src="javascripts/makeShapes.js"></script>
+  </head>
+    <body>
+      <script>
+      console.log("D3 ETH Running...");
+
+      // makeShapes();
+      d3.csv("http://localhost:3000/data/EtherPrice2.csv").then(function(data) {
+        showBarChart(data, 0, 0, 1200, 720);
+      });
+
+    </script>
+    </body>
+</html>
