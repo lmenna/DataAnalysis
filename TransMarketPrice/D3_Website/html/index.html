@@ -9,8 +9,9 @@
     <body>
       <script>
       console.log("D3 ETH Running...");
-
-      // makeShapes();
+      // Load ethereum price and transaction volume data.
+      // This data was generated seperately using google BigQuery for transactional data
+      // and using Etherscan for historical ETH prices https://etherscan.io/chart/etherprice
       d3.csv("http://localhost:3000/data/EtherPrice2.csv").then(function(data) {
         showBarChart(data, 0, 0, 1200, 720);
       });
