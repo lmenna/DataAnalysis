@@ -68,7 +68,6 @@ body { font: 16px Arial;}
   // This data was generated seperately using google BigQuery for transactional data
   // and using Etherscan for historical ETH prices https://etherscan.io/chart/etherprice
   d3.csv("http://localhost:3000/data/EtherPrice2.csv").then(function(data) {
-    // showBarChart(data);
     renderETHTimeseriesChart(data);
   });
 </script>
