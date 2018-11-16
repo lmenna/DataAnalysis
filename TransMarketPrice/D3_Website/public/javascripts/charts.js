@@ -158,6 +158,13 @@ function makeFieldNumerical(data, field) {
   }));
 }
 
+function makeFieldDate(data, field) {
+
+  return( data.map(item => {
+    item[field] = new Date(item[field]);
+    return(item);
+  }));
+}
 
 function renderLineChart(data) {
 
@@ -190,7 +197,7 @@ function renderLineChart(data) {
       .domain([0, numDataPoints-1]) // input
       .range([0, width]); // output
 
-  // Y scale will use the randomly generate number
+  // Y scale for pricing data
   var yScale = d3.scaleLinear()
       .domain([0, maxPrice]) // input
       .range([height, 0]); // output
@@ -238,4 +245,342 @@ function renderLineChart(data) {
           // this.attr('class', 'focus')
   		})
         .on("mouseout", function() {  })
+}
+
+
+function renderETHLineChart(data) {
+
+  // Use the margin convention practice
+  var margin = {top: 50, right: 70, bottom: 60, left: 60}
+    , width = window.innerWidth - margin.left - margin.right // Use the window's width
+    , height = window.innerHeight - margin.top - margin.bottom; // Use the window's height
+
+  if (width>1000)
+    width = 1000;
+  var numDataPoints = width/2;
+  var zeroYLevel = margin.bottom;
+  var zeroXLevel = margin.right;
+
+  // Limit the dataset
+  var trimmedData = data.slice(data.length-numDataPoints, data.length);
+  console.log("trimmedData.length:", trimmedData.length);
+  console.log("width:", width);
+  console.log("numDataPoints:", numDataPoints);
+  console.log("height:", height);
+
+  // CSV data from D3 loads as string.  Convert to numbers.
+  makeFieldNumerical(trimmedData, "Price");
+  makeFieldNumerical(trimmedData, "Transaction Count");
+  const maxPrice = getMaxValue(trimmedData, "Num Price");
+  const maxTrans = getMaxValue(trimmedData, "Num Transaction Count");
+
+  // Create the D3 rendering for the data
+  var chart = d3.select("body")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+
+  // X scale will use the index of our data
+  var xScale = d3.scaleLinear()
+      .domain([0, numDataPoints-1]) // input
+      .range([0, width]); // output
+
+  // Y scale for pricing data
+  var yPriceScale = d3.scaleLinear()
+      .domain([0, maxPrice]) // input
+      .range([height, 0]); // output
+
+  // Y scale for transaction data
+  var yTransScale = d3.scaleLinear()
+      .domain([0, maxTrans]) // input
+      .range([height, 0]); // output
+
+  // d3's line generator for prices
+  var lineForPrices = d3.line()
+      .x(function(d, i) { return xScale(i); }) // set the x values for the line generator
+      .y(function(d) { return yPriceScale(d["Num Price"]); }) // set the y values for the line generator
+      .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+  // d3's line generator for transactions
+  var lineForTransactions = d3.line()
+      .x(function(d, i) { return xScale(i); }) // set the x values for the line generator
+      .y(function(d) { return yTransScale(d["Num Transaction Count"]); }) // set the y values for the line generator
+      .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+  // Add the SVG to the page and employ #2
+  var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Call the x axis in a group tag
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xScale)) // Create an axis component with d3.axisBottom
+      .style("font-size", "12px")
+
+  // Call the y axis for pricing in a group tag
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(d3.axisLeft(yPriceScale)) // Create an axis component with d3.axisLeft
+      .style("font-size", "12px");
+
+  // Call the y axis for transactions in a group tag
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(d3.axisRight(yTransScale)) // Create an axis component with d3.axisLeft
+      .attr("transform", "translate(" + width + ",0)")
+      .style("font-size", "12px");
+
+  // Title for left y-axis is the Price
+  svg.append("text")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      // .attr("transform", "translate("+ (margin.left/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .attr("transform", "translate("+ (-margin.left/1.8) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .text("Price");
+
+  // Title for right y-axis is the Daily Transactions
+  svg.append("text")
+      .attr("class", "y-axis-label")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      // .attr("transform", "translate("+ (margin.left/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .attr("transform", "translate("+ (width + margin.right/1.1) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .text("Daily Transactions");
+
+  // Title for the x-axis is Date
+  svg.append("text")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      .attr("transform", "translate("+ (width/2) +","+(height+(margin.bottom/1.8))+")")  // centre below axis
+      .text("Date");
+
+  // Append the path for the pricing line
+  svg.append("path")
+      .datum(trimmedData) // Binds data to the line
+      .attr("class", "lineForPrices") // Assign a class for styling
+      .attr("d", lineForPrices); // Calls the line generator
+  // Append the path for the transaction line
+  svg.append("path")
+      .datum(trimmedData) // Binds data to the line
+      .attr("class", "lineForTransactions") // Assign a class for styling
+      .attr("d", lineForTransactions); // Calls the line generator
+
+  // Add a legend
+  //set colors
+  var z0 = d3.scaleOrdinal()
+    .range(["#000000", "#4682b4"]);
+
+  //set up the keys for graph legend
+  var keys = (["Price", "Transactions"]);
+  z0.domain(keys);
+  var legend = svg.append("g")
+    .attr("font-family", "sans-serif")
+    .attr("font-size", 15)
+    .attr("text-anchor", "end")
+    .selectAll("g")
+    .data(keys.slice().reverse())
+    .enter().append("g")
+    .attr("transform", function(d, i) {
+      return "translate(-100," + i * 25 + ")";
+    });
+
+  //append legend colour blocks
+  legend.append("rect")
+    .attr("x", width + 55)
+    .attr("width", 24)
+    .attr("height", 24)
+    .attr("fill", z0);
+
+  //append legend texts
+  legend.append("text")
+    .attr("x", width+50)
+    .attr("y", 9.5)
+    .attr("dy", "0.32em")
+    .text(function(d) {
+      return d;
+    });
+
+    svg.append("text")
+        .attr("class", "title")
+        .attr("x", (width / 2))
+        .attr("y", 0 - (margin.top / 2) + 10)
+        .attr("text-anchor", "middle")
+        .style("font-size", "18px")
+        .style("text-decoration", "underline")
+        .text("Ethereum Daily Prices and Transactions");
+
+}
+
+function renderETHTimeseriesChart(data) {
+
+  // Use the margin convention practice
+  var margin = {top: 50, right: 70, bottom: 60, left: 60}
+    , width = window.innerWidth - margin.left - margin.right // Use the window's width
+    , height = window.innerHeight - margin.top - margin.bottom; // Use the window's height
+
+  if (width>1000)
+    width = 1000;
+  var numDataPoints = width/2;
+  var zeroYLevel = margin.bottom;
+  var zeroXLevel = margin.right;
+
+  // Limit the dataset
+  var trimmedData = data.slice(data.length-numDataPoints, data.length);
+  console.log("trimmedData.length:", trimmedData.length);
+  console.log("width:", width);
+  console.log("numDataPoints:", numDataPoints);
+  console.log("height:", height);
+
+  // CSV data from D3 loads as string.  Convert to numbers.
+  makeFieldNumerical(trimmedData, "Price");
+  makeFieldNumerical(trimmedData, "Transaction Count");
+  const maxPrice = getMaxValue(trimmedData, "Num Price");
+  const maxTrans = getMaxValue(trimmedData, "Num Transaction Count");
+  makeFieldDate(trimmedData, "Date(UTC)");
+
+  // Create the D3 rendering for the data
+  var chart = d3.select("body")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+
+  // parse the date / time
+  var parseTime = d3.timeParse("%d/%b/%y");
+  var x = d3.scaleTime().range([0, width]);
+  x.domain(d3.extent(trimmedData, function(d) { return d["Date(UTC)"]; }));
+
+  // X scale will use the index of our data
+  var xScale = d3.scaleLinear()
+      .domain([0, numDataPoints-1]) // input
+      .range([0, width]); // output
+
+  // Y scale for pricing data
+  var yPriceScale = d3.scaleLinear()
+      .domain([0, maxPrice]) // input
+      .range([height, 0]); // output
+
+  // Y scale for transaction data
+  var yTransScale = d3.scaleLinear()
+      .domain([0, maxTrans]) // input
+      .range([height, 0]); // output
+
+  // d3's line generator for prices
+  var lineForPrices = d3.line()
+      .x(function(d, i) { return x(d["Date(UTC)"]); }) // set the x values for the line generator
+      .y(function(d) { return yPriceScale(d["Num Price"]); }) // set the y values for the line generator
+      .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+  // d3's line generator for transactions
+  var lineForTransactions = d3.line()
+      .x(function(d, i) { return x(d["Date(UTC)"]); }) // set the x values for the line generator
+      .y(function(d) { return yTransScale(d["Num Transaction Count"]); }) // set the y values for the line generator
+      .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+  // Add the SVG to the page and employ #2
+  var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Call the x axis in a group tag
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b%y"))) // Create an axis component with d3.axisBottom
+      .style("font-size", "12px")
+
+  // Call the y axis for pricing in a group tag
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(d3.axisLeft(yPriceScale)) // Create an axis component with d3.axisLeft
+      .style("font-size", "12px");
+
+  // Call the y axis for transactions in a group tag
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(d3.axisRight(yTransScale)) // Create an axis component with d3.axisLeft
+      .attr("transform", "translate(" + width + ",0)")
+      .style("font-size", "12px");
+
+  // Title for left y-axis is the Price
+  svg.append("text")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      // .attr("transform", "translate("+ (margin.left/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .attr("transform", "translate("+ (-margin.left/1.8) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .text("Price");
+
+  // Title for right y-axis is the Daily Transactions
+  svg.append("text")
+      .attr("class", "y-axis-label")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      // .attr("transform", "translate("+ (margin.left/2) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .attr("transform", "translate("+ (width + margin.right/1.1) +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+      .text("Daily Transactions");
+
+  // Title for the x-axis is Date
+  svg.append("text")
+      .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+      .attr("transform", "translate("+ (width/2) +","+(height+(margin.bottom/1.6))+")")  // centre below axis
+      .text("Date");
+
+  // Append the path for the pricing line
+  svg.append("path")
+      .datum(trimmedData) // Binds data to the line
+      .attr("class", "lineForPrices") // Assign a class for styling
+      .attr("d", lineForPrices) // Calls the line generator
+      .style("stroke-width", 2);
+
+  // Append the path for the transaction line
+  svg.append("path")
+      .datum(trimmedData) // Binds data to the line
+      .attr("class", "lineForTransactions") // Assign a class for styling
+      .attr("d", lineForTransactions) // Calls the line generator
+      .style("stroke-width", 2);
+
+  // Add a legend
+  //set colors
+  var z0 = d3.scaleOrdinal()
+    .range(["#000000", "#4682b4"]);
+
+  //set up the keys for graph legend
+  var keys = (["Price", "Transactions"]);
+  z0.domain(keys);
+  var legend = svg.append("g")
+    .attr("font-family", "sans-serif")
+    .attr("font-size", 15)
+    .attr("text-anchor", "end")
+    .selectAll("g")
+    .data(keys.slice().reverse())
+    .enter().append("g")
+    .attr("transform", function(d, i) {
+      return "translate(-100," + i * 25 + ")";
+    });
+
+  //append legend colour blocks
+  legend.append("rect")
+    .attr("x", width + 55)
+    .attr("width", 24)
+    .attr("height", 24)
+    .attr("fill", z0);
+
+  //append legend texts
+  legend.append("text")
+    .attr("x", width+50)
+    .attr("y", 9.5)
+    .attr("dy", "0.32em")
+    .text(function(d) {
+      return d;
+    });
+
+    svg.append("text")
+        .attr("class", "title")
+        .attr("x", (width / 2))
+        .attr("y", 0 - (margin.top / 2) + 10)
+        .attr("text-anchor", "middle")
+        .style("font-size", "18px")
+        .style("text-decoration", "underline")
+        .text("Ethereum - Daily Prices and Transactions");
+
 }
