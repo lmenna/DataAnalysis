@@ -7,8 +7,9 @@
 const {BigQuery} = require('@google-cloud/bigquery');
 var nodemailer = require("nodemailer");
 
-// A hard coded query for testing.  Will return the top ten addresses for ERC721 smart contracts.
-// Top meanoing the addresses with the highest transaction counts.
+var wantEmail = true;
+
+// Query to extract daily transaction counts for Ethereum.
 var query = "select CAST(CEILING(UNIX_MILLIS(blocks.timestamp)/(1000*60*60*24)) as INT64) as IntDaysFrom19700101,"
 query += "sum(blocks.transaction_count) as Transactions,";
 query += "min(blocks.timestamp) as MinTimestamp,";
@@ -20,7 +21,7 @@ query += "max(blocks.number) as MaxBlockNumber,";
 query += "sum(blocks.difficulty) as Difficulty ";
 query += "from `bigquery-public-data.ethereum_blockchain.blocks` as blocks ";
 query += "where blocks.number != 0 ";
-query += "and blocks.timestamp > TIMESTAMP_SUB(current_timestamp, INTERVAL 200 HOUR) ";
+query += "and blocks.timestamp > TIMESTAMP_SUB(current_timestamp, INTERVAL 400 HOUR) ";
 query += "group by IntDaysFrom19700101 ";
 query += "order by IntDaysFrom19700101 DESC";
 
@@ -55,6 +56,7 @@ async function getBigQueryData(query)
         resultSet.data.push(row);
         rowCount++;
         console.log("Got row:", rowCount);
+        console.log(row);
       })
       .on('end', function() {
         resultSet.header.rowCount = rowCount;
@@ -64,7 +66,14 @@ async function getBigQueryData(query)
     });
     let r = await promise; // wait till the promise resolves (*)
     return(resultSet);
-};
+}
+
+
+function formatTimestamp(timestamp) {
+
+    return(timestamp.substring(0,16).replace("T", " "));
+}
+
 
 function OutputResults(results) {
 
@@ -77,9 +86,10 @@ function OutputResults(results) {
   avgTrans = avgTrans / results.length;
   var Message = "<HTML><BODY>";
   Message = "<table cellspacing=\"8\" callpadding=\"4\"><tbody>";
-  Message += "<tr align=\"center\"><th>Date</th><th>Day #</th><th>Transactions</th><th>Delta from Avg</th></tr>";
+  Message += "<tr align=\"center\"><th>Time Interval</th><th>Day #</th><th>Transactions</th><th>Delta from Avg</th></tr>";
   results.map(item => {
-    Message += ("<tr align=\"right\"><td align=\"right\">" + item.MaxTimestamp.value.substring(0,10) + "</td>"
+    Message += ("<tr align=\"right\">"
+      + "<td align=\"right\">" + formatTimestamp(item.MaxTimestamp.value) + " to " + formatTimestamp(item.MinTimestamp.value) + "</td>"
       + "<td align=\"right\">" + item.IntDaysFrom19700101 + "</td>"
       + "<td align=\"right\">" + item.Transactions.toLocaleString('en') + "</td>"
       + "<td align=\"right\">" + Math.trunc(item.Transactions - avgTrans).toLocaleString('en') + "</td></tr>");
@@ -125,12 +135,14 @@ function SendMessage(Message) {
  * desc: async Wrapper function to call into getBigQueryData() and wait for the result.
  *
  */
-async function TestQuery() {
+async function RunTransactionVolumes(wantEmail) {
   var result;
   try {
     result = await getBigQueryData(query);
     var Message = OutputResults(result.data);
-    SendMessage(Message);
+    if (wantEmail) {
+      SendMessage(Message);
+    }
   } catch(e) {
     console.log("Error:", e);
   }
@@ -138,5 +150,5 @@ async function TestQuery() {
 }
 
 // Run the test.
-console.log("TestQuery()");
-TestQuery();
+console.log("Run Dail Transaction Volumes");
+RunTransactionVolumes(wantEmail);
